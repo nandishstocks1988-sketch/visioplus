@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>SFD Harness</title>
+  <style>
+    body {
+      font: 14px system-ui;
+      margin: 20px;
+    }
+
+    fieldset {
+      margin-bottom: 1rem;
+    }
+
+    pre {
+      background: #111;
+      color: #cdf;
+      padding: 6px 8px;
+      font-size: 12px;
+      max-height: 200px;
+      overflow: auto;
+    }
+
+    .bad {
+      color: #e33;
+      font-weight: 600;
+    }
+
+    .good {
+      color: #1a7f1a;
+      font-weight: 600;
+    }
+  </style>
+  <script src="harness-portal-messaging.js"></script>
+</head>
+
+<body>
+  <h1>Harness – Element & Wiring Verification</h1>
+
+  <fieldset>
+    <legend>Systems</legend>
+    <form id="add-system-form">
+      <input id="sysNameInput" placeholder="System name">
+      <button>Add System</button>
+    </form>
+    <div id="system-list" style="border:1px solid #ccc;min-height:40px;padding:6px;border-radius:6px;"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Nodes</legend>
+    <div id="nodes-container" style="border:1px solid #ccc;min-height:40px;padding:6px;border-radius:6px;"></div>
+    <button id="addNodeEndBtn" type="button">Add Step</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Diagnostics</legend>
+    <button id="runDiagBtn" type="button">Run Element Scan</button>
+    <pre id="diagOut">(none)</pre>
+  </fieldset>
+
+  <script>
+    /* Core state */
+    window.systems = {};
+    window.systemsOrder = [];
+    window.systemPlacement = {};
+    window.nodes = [];
+    let nodeCount = 0;
+
+    /* Simple renders */
+    function renderSystemList() {
+      const el = document.getElementById('system-list');
+      el.innerHTML = systemsOrder.map(s => '<div>' + s + '</div>').join('') || '(none)';
+    }
+    function renderNodes() {
+      const el = document.getElementById('nodes-container');
+      el.innerHTML = nodes.map(n => '<div>' + n.id + ' ' + (n.label || '') + '</div>').join('') || '(none)';
+    }
+
+    /* Add system */
+    document.getElementById('add-system-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const name = sysNameInput.value.trim();
+      if (!name || systems[name]) return;
+      systems[name] = { subgroups: {} };
+      systemsOrder.push(name);
+      sysNameInput.value = '';
+      renderSystemList();
+      console.log('[HARNESS] Added system', name);
+    });
+
+    /* Add node */
+    document.getElementById('addNodeEndBtn').addEventListener('click', () => {
+      const id = 'N' + (nodeCount++);
+      nodes.push({ id, label: '' });
+      renderNodes();
+      console.log('[HARNESS] Added node', id);
+    });
+
+    /* Element scan */
+    document.getElementById('runDiagBtn').addEventListener('click', () => {
+      const req = ['add-system-form', 'sysNameInput', 'system-list', 'nodes-container', 'addNodeEndBtn'];
+      const out = [];
+      req.forEach(id => {
+        const ok = !!document.getElementById(id);
+        out.push((ok ? '[OK] ' : '[MISS] ') + id);
+      });
+      diagOut.textContent = out.join('\\n');
+    });
+
+    /* Expose diag helpers (match the previous plan) */
+    window.__diagAddSystem = function (name) {
+      const nm = name || ('DiagSys_' + Date.now());
+      if (systems[nm]) return;
+      systems[nm] = { subgroups: {} };
+      systemsOrder.push(nm);
+      renderSystemList();
+      console.log('[HARNESS] __diagAddSystem', nm);
+    };
+    window.__diagAddNode = function () {
+      const id = 'DX' + (nodeCount++);
+      nodes.push({ id, label: 'Diag' });
+      renderNodes();
+      console.log('[HARNESS] __diagAddNode', id);
+    };
+
+    renderSystemList();
+    renderNodes();
+  </script>
+</body>
+
+</html>

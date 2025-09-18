@@ -1,0 +1,216 @@
+:root {
+    --panel-bg: #1f2733;
+    --panel-border: #14191f;
+    --panel-text: #d2dae3;
+    --accent: #ff7f2a;
+    --accent-bg: #ffe5d1;
+    --canvas-bg: #fafbfc;
+    --sel-border: #ff7f2a;
+
+    /* Shared additions */
+    --focus-ring: 0 0 0 2px rgba(255, 127, 42, 0.4);
+    --btn-radius: 6px;
+    --btn-bg: #2e3947;
+    --btn-bg-hover: #3b495a;
+    --btn-bg-active: #46576a;
+    --btn-border: #3b495a;
+    --btn-border-hover: #4b5a6d;
+    --btn-text: #d6e0ea;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, Inter, Arial, sans-serif;
+    background: #eef1f5;
+    color: #222;
+    height: 100%;
+}
+
+#app {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#canvas-container {
+    position: relative;
+    flex: 1;
+    background: var(--canvas-bg);
+}
+
+#diagram-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.045) 1px, transparent 1px) 0 0 / 20px 20px,
+        linear-gradient(rgba(0, 0, 0, 0.045) 1px, transparent 1px) 0 0 / 20px 20px,
+        #fff;
+    cursor: default;
+}
+
+#side-panel {
+    width: 260px;
+    background: var(--panel-bg);
+    color: var(--panel-text);
+    padding: 14px;
+    border-left: 1px solid var(--panel-border);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+}
+
+.panel-group {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid #2d3744;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.panel-group h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #9fb3c8;
+}
+
+/* Unified button styling (legacy panel buttons) */
+button {
+    font: inherit;
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    color: var(--btn-text);
+    padding: 6px 10px;
+    border-radius: var(--btn-radius);
+    cursor: pointer;
+    margin: 3px 4px 3px 0;
+    transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
+}
+
+button:hover {
+    background: var(--btn-bg-hover);
+    border-color: var(--btn-border-hover);
+}
+
+button:active {
+    background: var(--btn-bg-active);
+}
+
+button:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+input[type="color"] {
+    width: 46px;
+    height: 30px;
+    border: 1px solid #3b495a;
+    background: #10161d;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #2d3744;
+    margin: 10px 0 12px;
+}
+
+.legend-overlay {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(4px);
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #dce3ea;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.18);
+}
+
+.legend-overlay h4 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    color: #2c3947;
+}
+
+.legend-overlay ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.legend-overlay li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+}
+
+.swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    display: inline-block;
+}
+
+.sw-fill {
+    background: #ffffff;
+}
+
+.sw-stroke {
+    background: #333;
+}
+
+.sw-select {
+    background: var(--accent);
+}
+
+.context-menu {
+    position: fixed;
+    background: #ffffff;
+    border: 1px solid #d5dde6;
+    box-shadow: 0 8px 28px -6px rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+    padding: 6px;
+    z-index: 1000;
+    display: flex;
+    gap: 4px;
+}
+
+.context-menu.hidden {
+    display: none;
+}
+
+.context-menu button {
+    margin: 0;
+}
+
+.panel-group label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+#sel-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: #d4dee8;
+}

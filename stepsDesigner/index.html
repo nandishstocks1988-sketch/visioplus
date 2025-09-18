@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>System Flow Designer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- Mermaid & export libs -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="script.js"></script>
+  <script src="designer-portal-messaging.js"></script>
+  <!-- Optional: ensure SVG export has BG -->
+  <script src="svg-bg-override.js"></script>
+</head>
+
+<body>
+  <header class="app-header">
+    <h1>System Flow Designer</h1>
+    <div class="top-actions">
+      <button id="helpQuickBtn" class="btn secondary small">❔ Help</button>
+      <button id="docsBtn" class="btn primary small">📘 Documentation</button>
+    </div>
+  </header>
+
+  <!-- Help Panel -->
+  <div id="helpPanel" class="side-panel hidden">
+    <div class="panel-header">
+      <h2>Quick Help</h2>
+      <button id="closeHelpBtn" class="btn subtle small">✖</button>
+    </div>
+    <div class="panel-body">
+      <ul class="mini-list">
+        <li>Add systems & choose row (or use canvas lanes)</li>
+        <li>Drag on Canvas or List to reorder systems</li>
+        <li>Add Subgroups / Nodes</li>
+        <li>Connections on destination node (choose arrows & style)</li>
+        <li>Update Diagram</li>
+        <li>Export JSON / PNG / PDF / SVG</li>
+      </ul>
+      <button id="openDocsFromHelp" class="btn primary small block">Open Full Documentation</button>
+    </div>
+  </div>
+
+  <!-- Documentation Panel -->
+  <div id="docsPanel" class="side-panel hidden wide">
+    <div class="panel-header">
+      <h2>Documentation</h2>
+      <button id="closeDocsBtn" class="btn subtle small">✖</button>
+    </div>
+    <div class="panel-body scrollable">
+      <nav class="toc">
+        <strong>Sections</strong>
+        <ul>
+          <li><a href="#doc-start">Getting Started</a></li>
+          <li><a href="#doc-systems">Systems & Rows</a></li>
+          <li><a href="#doc-canvas">Canvas Drag & Drop</a></li>
+          <li><a href="#doc-subgroups">Subgroups</a></li>
+          <li><a href="#doc-nodes">Nodes & Connections</a></li>
+          <li><a href="#doc-styles">Connection Styles</a></li>
+          <li><a href="#doc-layout">Layout Rules</a></li>
+          <li><a href="#doc-legend">Legend</a></li>
+          <li><a href="#doc-export">Export & Import</a></li>
+          <li><a href="#doc-troubleshoot">Troubleshooting</a></li>
+        </ul>
+      </nav>
+
+      <section id="doc-start">
+        <h3>Getting Started</h3>
+        <ol>
+          <li>Create Systems (each assigned a row or use canvas to reposition).</li>
+          <li>Drag systems on Canvas (tile) or in the list (handle) to reorder.</li>
+          <li>Create Subgroups if needed.</li>
+          <li>Add Nodes & assign System/Subgroup.</li>
+          <li>Define incoming edges with the advanced connection controls.</li>
+          <li>Click Update Diagram.</li>
+        </ol>
+      </section>
+
+      <section id="doc-systems">
+        <h3>Systems & Rows</h3>
+        <p>Row numbers group systems into horizontal bands (lane). Lower rows appear above. When all systems are row 0,
+          the global Vertical/Horizontal toggle determines top-to-bottom or left-to-right orientation.</p>
+      </section>
+
+      <section id="doc-canvas">
+        <h3>Canvas Drag & Drop</h3>
+        <p>The Canvas shows system tiles. Drag a tile:
+        <ul>
+          <li>Horizontally → reorder within the lane.</li>
+          <li>Vertically → move to a different lane (row changes automatically).</li>
+        </ul>
+        Use "Compact Lanes" to remove empty vertical gaps and renumber lanes, or "Reset Layout" to linearize row 0.
+        </p>
+      </section>
+
+      <section id="doc-subgroups">
+        <h3>Subgroups</h3>
+        <p>Nested clusters inside a system.</p>
+      </section>
+
+      <section id="doc-nodes">
+        <h3>Nodes & Connections</h3>
+        <p>Connections represent inbound edges for the node.</p>
+      </section>
+
+      <section id="doc-styles">
+        <h3>Connection Styles</h3>
+        <p>Types add arrow/line variants (solid, plain, dashed, dotted, thick, double, no-arrow versions). Customize
+          arrow toggle, stroke width (1–6), and color. Patterns applied via linkStyle when safe.</p>
+      </section>
+
+      <section id="doc-layout">
+        <h3>Layout Rules</h3>
+        <p>Per-system and subgroup layouts (vertical/horizontal) override global arrangement for internal node
+          direction. Global arrangement only affects overall system stacking when single row is used.</p>
+      </section>
+
+      <section id="doc-legend">
+        <h3>Legend</h3>
+        <p>Styled text overlay. Optionally include node descriptions in exports.</p>
+      </section>
+
+      <section id="doc-export">
+        <h3>Export & Import</h3>
+        <ul>
+          <li>JSON: full state (includes systemPlacement).</li>
+          <li>PNG/PDF/SVG: diagram + legend (+ descriptions if option selected).</li>
+          <li>Import: missing systems/subgroups created automatically.</li>
+        </ul>
+      </section>
+
+      <section id="doc-troubleshoot">
+        <h3>Troubleshooting</h3>
+        <ul>
+          <li>Edge style missing? Possibly safe fallback suppressed linkStyle; see console.</li>
+          <li>Turn on safe mode: <code>EDGE_STYLE_SAFE_MODE = true; generateMermaid();</code></li>
+          <li>Arrows reversed? Remember edges are defined inbound (source → current node).</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <button id="addNodeBtn" class="btn primary">➕ Node</button>
+      <button id="generateBtn" class="btn secondary">🔄 Update Diagram</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="downloadJsonBtn" class="btn secondary">💾 JSON</button>
+      <label class="file-label btn secondary">
+        ⬆️ Import
+        <input id="uploadJSON" type="file" accept="application/json" />
+      </label>
+      <button id="downloadPngBtn" class="btn secondary">🖼️ PNG</button>
+      <button id="downloadPdfBtn" class="btn secondary">📄 PDF</button>
+      <button id="downloadSvgBtn" class="btn secondary">🧩 SVG</button>
+    </div>
+    <div class="toolbar-group">
+      <label class="stack">
+        <span class="lbl">Page BG</span>
+        <select id="pageBgColor">
+          <option value="#f3f6fa">Light</option>
+          <option value="#ffffff">White</option>
+          <option value="#f8f5ff">Lavender</option>
+          <option value="#eefaf4">Mint</option>
+        </select>
+      </label>
+      <label class="stack">
+        <span class="lbl">Diag BG</span>
+        <input id="diagramBgColor" type="color" value="#ffffff" />
+      </label>
+      <label class="stack">
+        <span class="lbl">Systems Layout</span>
+        <select id="systemsArrangementSelect">
+          <option value="vertical" selected>Vertical</option>
+          <option value="horizontal">Horizontal</option>
+        </select>
+      </label>
+      <label class="inline-chk">
+        <input id="exportDescriptionsChk" type="checkbox" checked />
+        Include descriptions in exports
+      </label>
+    </div>
+  </div>
+
+  <!-- Systems -->
+  <section id="system-manager" class="panel collapsible" data-panel="systems">
+    <div class="panel-header-main">
+      <h2>🗂️ Systems & Subgroups</h2>
+      <div class="panel-header-actions">
+        <button id="collapseAllSystemsBtn" class="btn subtle small">Collapse All</button>
+        <button id="expandAllSystemsBtn" class="btn subtle small">Expand All</button>
+        <button class="btn subtle small section-collapse-btn" data-target="systems">▾</button>
+      </div>
+    </div>
+    <div class="panel-content">
+      <div id="noSystemsHint" class="hint"></div>
+      <form id="add-system-form" autocomplete="off" class="sys-form">
+        <input id="sysNameInput" placeholder="System name" required />
+        <input id="sysStrokeInput" type="color" value="#333333" title="Stroke" />
+        <input id="sysFillInput" type="color" value="#ffffff" title="Fill" />
+        <select id="sysLayoutSelect" title="Direction">
+          <option value="vertical">Vertical</option>
+          <option value="horizontal">Horizontal</option>
+        </select>
+        <select id="sysPlacementMode" title="Place">
+          <option value="right_end">Right End</option>
+          <option value="left_end">Left End</option>
+          <option value="new_top_lane">New Top Lane</option>
+          <option value="new_lane_below">New Lane Below</option>
+        </select>
+        <input id="sysRowInput" type="number" placeholder="Row (optional)" style="width:70px;" />
+        <button type="submit" class="btn primary small">➕ Add</button>
+      </form>
+
+      <div class="layout-toolbar">
+        <button id="toggleLayoutCanvasBtn" class="btn subtle small">Hide Canvas</button>
+        <button id="resetLayoutBtn" class="btn subtle small">Reset Layout</button>
+        <button id="compactLanesBtn" class="btn subtle small">Compact Lanes</button>
+      </div>
+      <div id="layoutCanvas" class="layout-canvas"></div>
+
+      <h3 style="margin-top:1rem;">System List (Alt Reorder)</h3>
+      <div id="system-list" class="draggable-systems"></div>
+      <p class="hint" style="margin-top:.4rem;">
+        Drag tiles on canvas or drag handles here. Both stay in sync.
+      </p>
+    </div>
+  </section>
+
+  <!-- Nodes -->
+  <section id="nodes-panel" class="panel collapsible" data-panel="nodes">
+    <div class="panel-header-main">
+      <h2>🧩 Nodes</h2>
+      <div class="panel-header-actions">
+        <button id="collapseAllNodesBtn" class="btn subtle small">Collapse All</button>
+        <button id="expandAllNodesBtn" class="btn subtle small">Expand All</button>
+        <button class="btn subtle small section-collapse-btn" data-target="nodes">▾</button>
+      </div>
+    </div>
+    <div class="panel-content">
+      <div id="nodes-container"></div>
+    </div>
+  </section>
+
+  <!-- Legend -->
+  <section id="legend-panel" class="panel collapsible" data-panel="legend">
+    <div class="panel-header-main">
+      <h2>🗒️ Legend Editor</h2>
+      <div class="panel-header-actions">
+        <button class="btn subtle small section-collapse-btn" data-target="legend">▾</button>
+      </div>
+    </div>
+    <div class="panel-content">
+      <div class="legend-toolbar">
+        <div class="palette">
+          <span class="lbl">Palette:</span>
+          <button class="color-btn" data-color="#000000">⬛</button>
+          <button class="color-btn" data-color="#d0021b">🟥</button>
+          <button class="color-btn" data-color="#f5a623">🟧</button>
+          <button class="color-btn" data-color="#f8e71c">🟨</button>
+          <button class="color-btn" data-color="#7ed321">🟩</button>
+          <button class="color-btn" data-color="#4a90e2">🟦</button>
+          <button class="color-btn" data-color="#9013fe">🟪</button>
+        </div>
+        <div class="legend-controls">
+          <label class="inline">
+            <span>Text</span>
+            <input type="color" id="legendTextColorPicker" value="#222222" />
+          </label>
+          <button id="applyLegendTextColorBtn" class="btn subtle small">Apply</button>
+          <label class="inline">
+            <span>Highlight</span>
+            <input type="color" id="legendBgColorPicker" value="#ffff66" />
+          </label>
+          <button id="applyLegendBgColorBtn" class="btn subtle small">Apply</button>
+          <button id="addSwatchBtn" class="btn primary small">Add Swatch</button>
+          <button id="clearLegendBtn" class="btn danger small">Clear</button>
+          <button id="toggleLegendOverlayBtn" class="btn secondary small">Toggle Overlay</button>
+        </div>
+      </div>
+      <div id="legendEditor" class="legend-editor" contenteditable="true" spellcheck="false">
+        <p><b>Legend Example:</b>
+          <span style="background:#4a90e2;color:#fff;padding:2px 6px;border-radius:4px;">API</span>
+          Blue indicates API nodes.
+        </p>
+      </div>
+      <p class="hint">Select text, then apply color or highlight. Overlay shows on diagram.</p>
+    </div>
+  </section>
+
+  <!-- Diagram -->
+  <section id="diagram-panel" class="panel collapsible" data-panel="diagram">
+    <div class="panel-header-main">
+      <h2>Diagram Preview</h2>
+      <div class="panel-header-actions">
+        <button class="btn subtle small section-collapse-btn" data-target="diagram">▾</button>
+      </div>
+    </div>
+    <div class="panel-content">
+      <div id="diagram" class="diagram-surface">
+        <div id="legendOverlay" class="legend-overlay hidden">
+          <div class="legend-overlay-header">
+            <span>Legend</span>
+            <button id="hideLegendOverlayBtn" class="btn subtle small">✖</button>
+          </div>
+          <div id="legendOverlayContent"></div>
+        </div>
+        <div id="nodeTooltip" class="node-tooltip hidden"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Floating Actions -->
+  <div id="floatingActions">
+    <button id="fabAddNodeBtn" title="Add Node" class="fab">➕</button>
+    <button id="fabUpdateBtn" title="Update Diagram" class="fab">🔄</button>
+    <button id="fabJsonBtn" title="Export JSON" class="fab">💾</button>
+    <label class="file-label fab" title="Import JSON">
+      ⬆️
+      <input type="file" id="fabUploadJSON" accept="application/json" />
+    </label>
+    <button id="fabPngBtn" title="PNG Export" class="fab">🖼️</button>
+    <button id="fabPdfBtn" title="PDF Export" class="fab">📄</button>
+    <button id="fabSvgBtn" title="SVG Export" class="fab">🧩</button>
+  </div>
+  <!-- At the very end of body -->
+  <script src="script.js?v=5"></script>
+  <!-- Optional adapters (must NOT re-include script.js) -->
+  <script src="designer-portal-messaging.js"></script>
+  <script src="svg-bg-override.js"></script>
+</body>
+
+</html>

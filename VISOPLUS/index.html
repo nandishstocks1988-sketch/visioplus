@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Diagram Editor</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <!-- Optional external styles for legend & notes (ensure these files exist or inline them) -->
+    <link rel="stylesheet" href="./styles/notes_legend.css">
+    <link rel="stylesheet" href="./styles/scroll_workspace.css">
+
+
+    <!--
+    Index HTML (Full)
+    Includes:
+      - Structured toolbar (Set 4)
+      - Advanced Legend + Legend Editor button (new)
+      - Scrollable workspace (workspace-scroll -> workspace -> canvas)
+      - Bottom Notes panel (injected by canvasSettings.js)
+      - Canvas settings panel (injected dynamically at top of sidebar)
+      - Help system (helpPanel.js inline style injection)
+      - Straight-by-default connector creation logic (in JS modules)
+  -->
+
+    <style>
+        :root {
+            --panel-bg: #f8f9fb;
+            --border: #d0d4d9;
+            --accent: #ff7f2a;
+            --accent-rgb: 255, 127, 42;
+            --text: #222;
+            --font-stack: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Arial, sans-serif;
+            --toolbar-bg: #ffffff;
+            --toolbar-border: #d0d4d9;
+            --toolbar-group-gap: 10px;
+            --toolbar-btn-bg: #fff;
+            --toolbar-btn-border: #d0d4d9;
+            --toolbar-btn-hover-border: var(--accent);
+            --toolbar-btn-hover-color: var(--accent);
+            --badge-bg: #eef2f5;
+            --badge-text: #506072;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font: 14px var(--font-stack);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        #app {
+            flex: 1;
+            height: 100%;
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            grid-template-rows: 44px 1fr;
+            grid-template-areas:
+                "sidebar toolbar"
+                "sidebar main";
+        }
+
+        /* Toolbar */
+        #toolbar {
+            grid-area: toolbar;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: var(--toolbar-bg);
+            border-bottom: 1px solid var(--toolbar-border);
+            box-shadow: 0 1px 0 #eceef0;
+            z-index: 10;
+            flex-wrap: wrap;
+            font-size: 12px;
+        }
+
+        #toolbar .group {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px 4px;
+            background: #f4f6f8;
+            border: 1px solid #e2e6ea;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        #toolbar .group[data-label]::before {
+            content: attr(data-label);
+            position: absolute;
+            top: -9px;
+            left: 8px;
+            background: #f4f6f8;
+            padding: 0 6px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: .5px;
+            text-transform: uppercase;
+            color: #607080;
+            border-radius: 10px;
+            border: 1px solid #e2e6ea;
+            line-height: 1.2;
+        }
+
+        #toolbar button {
+            background: var(--toolbar-btn-bg);
+            border: 1px solid var(--toolbar-btn-border);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font: 12px var(--font-stack);
+            cursor: pointer;
+            line-height: 1.1;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: border-color .15s, color .15s, background .15s;
+            position: relative;
+        }
+
+        #toolbar button:hover {
+            border-color: var(--toolbar-btn-hover-border);
+            color: var(--toolbar-btn-hover-color);
+        }
+
+        #toolbar button:active {
+            background: #f1f3f5;
+        }
+
+        .btn-icon svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            vector-effect: non-scaling-stroke;
+        }
+
+        #status-bar {
+            margin-left: auto;
+            font-size: 12px;
+            opacity: .65;
+            padding: 0 4px;
+            font-weight: 500;
+        }
+
+        /* Sidebar */
+        #sidebar {
+            grid-area: sidebar;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            padding: 12px 14px 16px;
+            gap: 16px;
+            overflow-y: auto;
+        }
+
+        #sidebar::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        #sidebar::-webkit-scrollbar-thumb {
+            background: #c7ccd1;
+            border-radius: 6px;
+            border: 2px solid var(--panel-bg);
+        }
+
+        #sidebar::-webkit-scrollbar-thumb:hover {
+            background: #b3b8bd;
+        }
+
+        .panel-section {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+        }
+
+        .panel-section h3 {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            color: #525f6c;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .panel-section h3 .badge {
+            background: var(--badge-bg);
+            color: var(--badge-text);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px 1px;
+            border-radius: 10px;
+            letter-spacing: .4px;
+        }
+
+        .shape-category {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .shape-category-title {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .5px;
+            color: #768494;
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .shape-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+            gap: 6px;
+        }
+
+        .shape-grid button {
+            background: #f6f8fa;
+            border: 1px solid #d3d9df;
+            border-radius: 8px;
+            padding: 6px 4px 6px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            line-height: 1.1;
+            color: #37414c;
+            position: relative;
+            transition: background .15s, border-color .15s, transform .15s;
+        }
+
+        .shape-grid button:hover {
+            background: #edf2f6;
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .shape-grid button:active {
+            transform: translateY(1px);
+        }
+
+        .shape-icon {
+            width: 26px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .shape-icon svg {
+            width: 24px;
+            height: 18px;
+            stroke: #4f5d6c;
+            stroke-width: 1.5;
+            fill: rgba(0, 0, 0, .04);
+            rx: 4;
+        }
+
+        .shape-grid button:hover .shape-icon svg {
+            stroke: var(--accent);
+            fill: rgba(var(--accent-rgb), 0.12);
+        }
+
+        .muted {
+            font-size: 11px;
+            opacity: .65;
+            line-height: 1.3;
+            margin: 0;
+        }
+
+        .notice {
+            font-size: 11px;
+            background: #fff6eb;
+            border: 1px solid #ffd9b2;
+            padding: 6px 8px;
+            border-radius: 6px;
+            line-height: 1.3;
+            color: #715532;
+        }
+
+        .field-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .field-row label {
+            flex: 1 1 auto;
+            font-size: 12px;
+            font-weight: 500;
+            color: #515d68;
+            min-width: 90px;
+        }
+
+        .field-row input[type="color"],
+        .field-row input[type="number"],
+        .field-row select {
+            width: 106px;
+            height: 30px;
+            padding: 2px 4px;
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 6px;
+            font: 12px var(--font-stack);
+            cursor: pointer;
+        }
+
+        .inline-group {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Main & Workspace */
+        #main {
+            grid-area: main;
+            position: relative;
+            overflow: hidden;
+            background: #fafbfc;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #workspace-scroll {
+            position: relative;
+            flex: 1;
+            overflow: auto;
+            background: #ffffff;
+        }
+
+        #workspace {
+            position: relative;
+            width: 2400px;
+            height: 1600px;
+            background: transparent;
+        }
+
+        #diagram-canvas {
+            position: absolute;
+            inset: 0;
+            width: 2400px;
+            height: 1600px;
+            display: block;
+            cursor: default;
+        }
+
+        #shape-text-editor {
+            position: absolute;
+            z-index: 50;
+            min-width: 40px;
+            min-height: 20px;
+            padding: 2px 4px;
+            font: 14px var(--font-stack);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            background: #fffceb;
+            box-shadow: 0 0 0 2px rgba(255, 127, 42, 0.15);
+            outline: none;
+            resize: none;
+            line-height: 1.3;
+            display: none;
+        }
+
+        #context-menu {
+            position: absolute;
+            z-index: 2000;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px 0;
+            min-width: 170px;
+            display: none;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+            font-size: 13px;
+        }
+
+        #context-menu button {
+            width: 100%;
+            background: none;
+            border: none;
+            text-align: left;
+            padding: 7px 14px;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        #context-menu button:hover {
+            background: #f2f5f8;
+        }
+
+        /* Simple tooltips */
+        [data-tip] {
+            position: relative;
+        }
+
+        [data-tip]:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e252c;
+            color: #fff;
+            padding: 4px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 200;
+            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+
+        <!-- Sidebar Panels -->
+        <aside id="sidebar" aria-label="Sidebar Panels">
+
+            <!-- SHAPES -->
+            <div class="panel-section" aria-labelledby="shapes-heading">
+                <h3 id="shapes-heading">
+                    Shapes <span class="badge">Palette</span>
+                </h3>
+
+                <div class="shape-category">
+                    <div class="shape-category-title">Basic</div>
+                    <div class="shape-grid">
+                        <button data-shape="rect" data-tip="Rectangle (R)">
+                            <div class="shape-icon">
+                                <svg viewBox="0 0 40 28">
+                                    <rect x="5" y="5" width="30" height="18" rx="2"></rect>
+                                </svg>
+                            </div>
+                            Rect
+                        </button>
+                        <button data-shape="ellipse" data-tip="Ellipse (E)">
+                            <div class="shape-icon">
+                                <svg viewBox="0 0 40 28">
+                                    <ellipse cx="20" cy="14" rx="14" ry="9"></ellipse>
+                                </svg>
+                            </div>
+                            Ellipse
+                        </button>
+                        <button data-shape="pill" data-tip="Pill">
+                            <div class="shape-icon">
+                                <svg viewBox="0 0 40 28">
+                                    <rect x="5" y="7" width="30" height="14" rx="10"></rect>
+                                </svg>
+                            </div>
+                            Pill
+                        </button>
+                    </div>
+                </div>
+
+                <div class="shape-category">
+                    <div class="shape-category-title">Flow / Decision</div>
+                    <div class="shape-grid">
+                        <button data-shape="diamond" data-tip="Decision (D)">
+                            <div class="shape-icon">
+                                <svg viewBox="0 0 40 28">
+                                    <path d="M20 4 L34 14 L20 24 L6 14 Z"></path>
+                                </svg>
+                            </div>
+                            Diamond
+                        </button>
+                        <button data-shape="note" data-tip="Note / Annotation">
+                            <div class="shape-icon">
+                                <svg viewBox="0 0 40 28">
+                                    <path d="M6 6 H26 L34 14 V22 H6 Z"></path>
+                                </svg>
+                            </div>
+                            Note
+                        </button>
+                    </div>
+                </div>
+
+                <p class="muted">Click to insert; drag to move (Shift = Snap). Shift+drag from a port for orth L
+                    preview.</p>
+            </div>
+
+            <!-- SHAPE STYLE -->
+            <div class="panel-section" id="panel-shape-style">
+                <h3>Shape Style</h3>
+                <div class="field-row">
+                    <label for="style-fill">Fill</label>
+                    <input type="color" id="style-fill" value="#ffffff" />
+                </div>
+                <div class="field-row">
+                    <label for="style-stroke">Stroke</label>
+                    <input type="color" id="style-stroke" value="#333333" />
+                </div>
+                <div class="field-row">
+                    <label for="style-textcolor">Text</label>
+                    <input type="color" id="style-textcolor" value="#222222" />
+                </div>
+                <p class="muted">Applies to selected shapes.</p>
+            </div>
+
+            <!-- CONNECTOR STYLE -->
+            <div class="panel-section hidden" id="panel-connector-style">
+                <h3>Connector Style</h3>
+                <div class="field-row">
+                    <label for="conn-stroke">Stroke</label>
+                    <input type="color" id="conn-stroke" value="#444444" />
+                </div>
+                <div class="field-row">
+                    <label for="conn-width">Width</label>
+                    <input type="number" id="conn-width" value="2" min="1" max="20" />
+                </div>
+                <div class="field-row">
+                    <label for="conn-arrow-size">Arrow Size</label>
+                    <input type="number" id="conn-arrow-size" value="12" min="4" max="96" />
+                </div>
+                <div class="field-row">
+                    <label for="conn-arrow-start">Arrow Start</label>
+                    <select id="conn-arrow-start">
+                        <option value="none">None</option>
+                        <option value="triangle">Triangle</option>
+                        <option value="open">Open</option>
+                        <option value="diamond">Diamond</option>
+                        <option value="circle">Circle</option>
+                        <option value="bar">Bar</option>
+                    </select>
+                </div>
+                <div class="field-row">
+                    <label for="conn-arrow-end">Arrow End</label>
+                    <select id="conn-arrow-end">
+                        <option value="triangle">Triangle</option>
+                        <option value="open">Open</option>
+                        <option value="diamond">Diamond</option>
+                        <option value="circle">Circle</option>
+                        <option value="bar">Bar</option>
+                        <option value="none">None</option>
+                    </select>
+                </div>
+                <div class="inline-group">
+                    <div class="field-row">
+                        <label for="conn-pad-start">Pad Start</label>
+                        <input type="number" id="conn-pad-start" value="4" min="0" max="200" />
+                    </div>
+                    <div class="field-row">
+                        <label for="conn-pad-end">Pad End</label>
+                        <input type="number" id="conn-pad-end" value="4" min="0" max="200" />
+                    </div>
+                </div>
+                <button id="btn-edit-waypoints" style="padding:6px 10px;">Edit Waypoints</button>
+                <p class="muted">Toggle waypoint handles. Alt+Click line to insert a waypoint.</p>
+            </div>
+
+            <!-- ARRANGE -->
+            <div class="panel-section">
+                <h3>Arrange</h3>
+                <div style="display:flex; gap:6px; flex-wrap:wrap">
+                    <button id="btn-front" title="Bring to Front">Front</button>
+                    <button id="btn-forward" title="Forward 1">Forward</button>
+                    <button id="btn-backward" title="Backward 1">Backward</button>
+                    <button id="btn-back" title="Send to Back">Back</button>
+                </div>
+                <p class="muted">Connectors always render above shapes.</p>
+            </div>
+
+            <!-- ROUTING -->
+            <div class="panel-section">
+                <h3>Routing</h3>
+                <div style="display:flex; gap:6px; flex-wrap:wrap">
+                    <button id="btn-route-basic" title="Straight Lines">Basic</button>
+                    <button id="btn-route-grid" title="Orth Manhattan">Grid</button>
+                    <button id="btn-route-obstacle" title="Obstacle Prototype">Obstacle</button>
+                </div>
+            </div>
+
+            <!-- SESSION -->
+            <div class="panel-section">
+                <h3>Session</h3>
+                <div style="display:flex; gap:6px; flex-wrap:wrap">
+                    <button id="btn-save">Save</button>
+                    <button id="btn-load">Load</button>
+                    <button id="btn-reset">Reset</button>
+                </div>
+                <p class="muted">Reset clears in-memory model (not autosave storage).</p>
+            </div>
+
+            <!-- SHORTCUTS -->
+            <div class="panel-section">
+                <h3>Shortcuts</h3>
+                <div class="notice">
+                    Ctrl+D duplicate<br />
+                    Ctrl+C / Ctrl+V copy & paste<br />
+                    Delete removes selection<br />
+                    Shift+Arrow nudge ×10<br />
+                    Alt+F2 stats overlay<br />
+                    Alt+H / F1 Help<br />
+                    Ctrl+Shift+R force straight routing
+                </div>
+            </div>
+        </aside>
+
+        <!-- Toolbar -->
+        <header id="toolbar" role="toolbar" aria-label="Main Toolbar">
+            <div class="group" data-label="Insert">
+                <button id="tool-add-rect" class="btn-icon" data-tip="Add Rectangle">
+                    <svg viewBox="0 0 20 20">
+                        <rect x="4" y="5" width="12" height="10" rx="2" />
+                    </svg>Rect
+                </button>
+                <button id="tool-add-ellipse" class="btn-icon" data-tip="Add Ellipse">
+                    <svg viewBox="0 0 20 20">
+                        <ellipse cx="10" cy="10" rx="6" ry="4" />
+                    </svg>Ellipse
+                </button>
+                <button id="tool-add-diamond" class="btn-icon" data-tip="Add Diamond">
+                    <svg viewBox="0 0 20 20">
+                        <path d="M10 3 L16 10 L10 17 L4 10 Z" />
+                    </svg>Diamond
+                </button>
+                <button id="tool-add-pill" class="btn-icon" data-tip="Add Pill">
+                    <svg viewBox="0 0 20 20">
+                        <rect x="4" y="7" width="12" height="6" rx="3" />
+                    </svg>Pill
+                </button>
+                <button id="tool-add-note" class="btn-icon" data-tip="Add Note">
+                    <svg viewBox="0 0 20 20">
+                        <path d="M4 4 H13 L16 8 V16 H4 Z" />
+                    </svg>Note
+                </button>
+            </div>
+
+            <div class="group" data-label="View">
+                <button id="tool-zoom-in" class="btn-icon" data-tip="Zoom In">
+                    <svg viewBox="0 0 20 20">
+                        <circle cx="9" cy="9" r="5" />
+                        <path d="M9 7v4M7 9h4" />
+                        <path d="M13.5 13.5 L17 17" />
+                    </svg>+
+                </button>
+                <button id="tool-zoom-out" class="btn-icon" data-tip="Zoom Out">
+                    <svg viewBox="0 0 20 20">
+                        <circle cx="9" cy="9" r="5" />
+                        <path d="M7 9h4" />
+                        <path d="M13.5 13.5 L17 17" />
+                    </svg>−
+                </button>
+                <button id="tool-zoom-100" data-tip="Reset Zoom">100%</button>
+            </div>
+
+            <div class="group" data-label="Routing">
+                <button id="btn-route-obstacle" data-tip="Obstacle Route">Obstacle</button>
+                <button id="btn-route-basic" data-tip="Straight Route">Basic</button>
+                <button id="btn-route-grid" data-tip="Grid / Orth Route">Grid</button>
+            </div>
+
+            <div class="group" data-label="Data">
+                <button id="btn-export-svg" data-tip="Export SVG">SVG</button>
+                <button id="btn-export-json" data-tip="Export JSON">Export JSON</button>
+                <button id="btn-import-json" data-tip="Import JSON">Import JSON</button>
+            </div>
+
+            <div class="group" data-label="Legend">
+                <button id="btn-legend-editor" data-tip="Open Legend Editor">Legend Edit</button>
+            </div>
+
+            <div class="group" data-label="Help">
+                <button id="btn-help" class="btn-icon" data-tip="Open Help (Alt+H / F1)">
+                    <svg viewBox="0 0 20 20">
+                        <circle cx="10" cy="10" r="8" />
+                        <path
+                            d="M9.9 13v-2.2c0-.7.3-1.1 1-1.5.9-.5 1.4-1.1 1.4-2.1 0-1.4-1.1-2.3-2.6-2.3-1.3 0-2.3.7-2.6 1.9" />
+                        <circle cx="10" cy="15.2" r=".9" />
+                    </svg>
+                    Help
+                </button>
+            </div>
+
+            <div id="status-bar">Ready</div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main id="main">
+            <div id="workspace-scroll">
+                <div id="workspace" data-w="2400" data-h="1600">
+                    <canvas id="diagram-canvas"></canvas>
+                </div>
+            </div>
+            <textarea id="shape-text-editor"></textarea>
+            <div id="context-menu"></div>
+        </main>
+    </div>
+
+    <script type="module">
+        import './src/main.js';
+        import './src/ui/helpPanel.js';
+        import './src/features/legendAdvanced.js';
+        import './src/ui/canvasSettings.js';
+
+        import {
+            createShape,
+            model,
+            bringShapesToFront,
+            sendShapesToBack,
+            bringShapesForward,
+            sendShapesBackward
+        } from './src/core/model.js';
+        import { selection } from './src/core/selection.js';
+        import { routeAllBasic } from './src/core/routing-basic.js';
+        import { routeAllGrid } from './src/core/routing-grid.js';
+        import { emit } from './src/core/events.js';
+
+        /* Sidebar shape palette insertion */
+        document.querySelectorAll('.shape-grid button[data-shape]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.getAttribute('data-shape');
+                const s = createShape({
+                    type,
+                    x: 140 + Math.random() * 240,
+                    y: 110 + Math.random() * 200,
+                    text: type.charAt(0).toUpperCase() + type.slice(1)
+                });
+                emit('model:changed', { reason: 'addShape:' + type, changed: { shapes: [s.id] } });
+                emit('ui:needsRender');
+            });
+        });
+
+        /* Toolbar quick add duplicates */
+        function quickAdd(id, type, label) {
+            document.getElementById(id)?.addEventListener('click', () => {
+                const s = createShape({
+                    type,
+                    x: 160 + Math.random() * 260,
+                    y: 120 + Math.random() * 200,
+                    text: label
+                });
+                emit('model:changed', { reason: 'addShape:' + type, changed: { shapes: [s.id] } });
+                emit('ui:needsRender');
+            });
+        }
+        quickAdd('tool-add-rect', 'rect', 'Rect');
+        quickAdd('tool-add-ellipse', 'ellipse', 'Ellipse');
+        quickAdd('tool-add-diamond', 'diamond', 'Decision');
+        quickAdd('tool-add-pill', 'pill', 'Pill');
+        quickAdd('tool-add-note', 'note', 'Note');
+
+        /* Routing */
+        document.getElementById('btn-route-basic')?.addEventListener('click', () => routeAllBasic());
+        document.getElementById('btn-route-grid')?.addEventListener('click', () => routeAllGrid());
+
+        /* Legend Editor */
+        document.getElementById('btn-legend-editor')?.addEventListener('click', () => {
+            if (window.VISOPLUS?.legendAdvanced?.toggleEditor) {
+                window.VISOPLUS.legendAdvanced.toggleEditor();
+            }
+        });
+
+        /* Arrange */
+        document.getElementById('btn-front')?.addEventListener('click', () => {
+            const ids = [...selection.shapes]; if (!ids.length) return;
+            bringShapesToFront(ids);
+        });
+        document.getElementById('btn-back')?.addEventListener('click', () => {
+            const ids = [...selection.shapes]; if (!ids.length) return;
+            sendShapesToBack(ids);
+        });
+        document.getElementById('btn-forward')?.addEventListener('click', () => {
+            const ids = [...selection.shapes]; if (!ids.length) return;
+            bringShapesForward(ids);
+        });
+        document.getElementById('btn-backward')?.addEventListener('click', () => {
+            const ids = [...selection.shapes]; if (!ids.length) return;
+            sendShapesBackward(ids);
+        });
+
+        /* Zoom */
+        document.getElementById('tool-zoom-in')?.addEventListener('click', () => {
+            model.meta.zoom = Math.min(6, model.meta.zoom * 1.2);
+            emit('model:changed', { reason: 'zoom' });
+        });
+        document.getElementById('tool-zoom-out')?.addEventListener('click', () => {
+            model.meta.zoom = Math.max(0.1, model.meta.zoom / 1.2);
+            emit('model:changed', { reason: 'zoom' });
+        });
+        document.getElementById('tool-zoom-100')?.addEventListener('click', () => {
+            model.meta.zoom = 1;
+            emit('model:changed', { reason: 'zoom' });
+        });
+
+        /* Help button manual toggle */
+        document.getElementById('btn-help')?.addEventListener('click', () => {
+            if (window.VISOPLUS?.helpPanel?.toggle) {
+                window.VISOPLUS.helpPanel.toggle();
+            } else {
+                alert('Help panel not loaded.');
+            }
+        });
+
+        /* Session reset (if a button with id btn-reset exists in another panel script) */
+        document.getElementById('btn-reset')?.addEventListener('click', () => {
+            if (confirm('Reset canvas? This clears all shapes & connectors.')) {
+                model.shapes.clear();
+                model.connectors.clear();
+                model.meta.pan.x = 0;
+                model.meta.pan.y = 0;
+                model.meta.zoom = 1;
+                emit('model:changed', { reason: 'reset', changed: { all: true } });
+            }
+        });
+
+        /* Status bar version update */
+        const status = document.getElementById('status-bar');
+        if (status) {
+            window.addEventListener('model:changed', () => {
+                status.textContent = 'Version ' + (model.meta.version ?? '1');
+            });
+        }
+
+        console.log('index.html fully loaded (advanced legend, notes, scroll workspace, help).');
+    </script>
+</body>
+
+</html>

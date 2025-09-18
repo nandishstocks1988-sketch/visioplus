@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>VisoPlus Unified Portal</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    
+    <!-- VISOPLUS styles -->
+    <link rel="stylesheet" href="./VISOPLUS/styles/notes_legend.css">
+    <link rel="stylesheet" href="./VISOPLUS/styles/scroll_workspace.css">
+    
+    <!-- Steps Designer styles -->
+    <link rel="stylesheet" href="./stepsDesigner/style.css">
+    
+    <style>
+        :root {
+            --accent: #0e73d9;
+            --border: #d0d7de;
+            --bg: #f3f6fa;
+            --panel: #fff;
+            --steps-bg: #ffffff;
+            --visoplus-bg: #fafbfc;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font: 14px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            background: var(--bg);
+            color: #1d2329;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Main Layout */
+        #app {
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            grid-template-rows: 60px 1fr;
+            grid-template-areas:
+                "header header"
+                "steps visoplus";
+        }
+
+        /* Header */
+        .unified-header {
+            grid-area: header;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 20px;
+            background: var(--panel);
+            border-bottom: 2px solid var(--border);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .unified-header h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1d2329;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn {
+            border: 1px solid var(--accent);
+            background: var(--accent);
+            color: #fff;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn.secondary {
+            background: #fff;
+            color: var(--accent);
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Steps Panel (Left) */
+        .steps-panel {
+            grid-area: steps;
+            background: var(--steps-bg);
+            border-right: 2px solid var(--border);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .steps-content {
+            flex: 1;
+            padding: 16px;
+        }
+
+        /* VisoPlus Panel (Right) */
+        .visoplus-panel {
+            grid-area: visoplus;
+            background: var(--visoplus-bg);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .visoplus-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            flex-wrap: wrap;
+        }
+
+        .visoplus-main {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Workspace styling for embedded VISOPLUS */
+        #workspace-scroll {
+            position: absolute;
+            inset: 0;
+            overflow: auto;
+            background: #ffffff;
+        }
+
+        #workspace {
+            position: relative;
+            width: 2400px;
+            height: 1600px;
+            background: transparent;
+        }
+
+        #diagram-canvas {
+            position: absolute;
+            inset: 0;
+            width: 2400px;
+            height: 1600px;
+            display: block;
+            cursor: default;
+        }
+
+        /* Status bar */
+        .status-bar {
+            padding: 6px 12px;
+            font-size: 12px;
+            color: #6b7280;
+            background: #f8f9fa;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Hide elements that would conflict */
+        .steps-content .app-header,
+        .steps-content .toolbar {
+            display: none;
+        }
+
+        /* Responsive design */
+        @media (max-width: 1024px) {
+            #app {
+                grid-template-columns: 1fr;
+                grid-template-rows: 60px 300px 1fr;
+                grid-template-areas:
+                    "header"
+                    "steps"
+                    "visoplus";
+            }
+            
+            .steps-panel {
+                border-right: none;
+                border-bottom: 2px solid var(--border);
+            }
+        }
+
+        /* Loading states */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100px;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        /* Sync status indicator */
+        .sync-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #1976d2;
+        }
+
+        .sync-indicator.synced {
+            background: #e8f5e8;
+            border-color: #81c784;
+            color: #2e7d32;
+        }
+
+        .sync-indicator.error {
+            background: #ffebee;
+            border-color: #f48fb1;
+            color: #c62828;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <!-- Unified Header -->
+        <header class="unified-header">
+            <h1>VisoPlus Unified Portal</h1>
+            <div class="header-actions">
+                <div id="syncStatus" class="sync-indicator">
+                    <span>●</span> Ready
+                </div>
+                <button id="autoSyncBtn" class="btn secondary">Auto-Sync: ON</button>
+                <button id="manualSyncBtn" class="btn">Sync Now</button>
+                <a href="portal.html" class="btn secondary">Legacy Portal</a>
+            </div>
+        </header>
+
+        <!-- Steps Designer Panel (Left) -->
+        <div class="steps-panel">
+            <div class="steps-content" id="stepsContent">
+                <div class="loading">Loading Steps Designer...</div>
+            </div>
+        </div>
+
+        <!-- VisoPlus Panel (Right) -->
+        <div class="visoplus-panel">
+            <div class="visoplus-toolbar">
+                <div class="group">
+                    <button id="addRectBtn" data-shape="rect">📦 Rect</button>
+                    <button id="addEllipseBtn" data-shape="ellipse">⭕ Ellipse</button>
+                    <button id="addDiamondBtn" data-shape="diamond">🔷 Diamond</button>
+                </div>
+                <div class="group">
+                    <button id="zoomInBtn">🔍+</button>
+                    <button id="zoomOutBtn">🔍-</button>
+                    <button id="zoomFitBtn">Fit</button>
+                </div>
+                <div class="group">
+                    <button id="routeBasicBtn">Basic Route</button>
+                    <button id="routeGridBtn">Grid Route</button>
+                </div>
+                <div class="group">
+                    <button id="exportSvgBtn">📄 SVG</button>
+                    <button id="exportJsonBtn">💾 JSON</button>
+                </div>
+            </div>
+            <div class="visoplus-main">
+                <div id="workspace-scroll">
+                    <div id="workspace" data-w="2400" data-h="1600">
+                        <canvas id="diagram-canvas"></canvas>
+                    </div>
+                </div>
+                <!-- VISOPLUS UI elements -->
+                <textarea id="shape-text-editor" style="position: absolute; z-index: 50; display: none;"></textarea>
+                <div id="context-menu" style="position: absolute; z-index: 2000; display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <span id="stepsStatus">Steps: Ready</span>
+        <span id="visoStatus">VisoPlus: Ready</span>
+    </div>
+
+    <!-- Load core modules -->
+    <script type="module">
+        // Global state management
+        window.UnifiedPortal = {
+            autoSync: true,
+            stepsData: null,
+            visoData: null,
+            
+            // State management
+            setState: function(data, source = 'unknown') {
+                console.log(`[UnifiedPortal] State updated from ${source}:`, data);
+                if (source === 'steps') {
+                    this.stepsData = data;
+                    if (this.autoSync) {
+                        this.syncToViso();
+                    }
+                } else if (source === 'viso') {
+                    this.visoData = data;
+                    if (this.autoSync) {
+                        this.syncToSteps();
+                    }
+                }
+                this.updateSyncStatus();
+            },
+            
+            // Sync from Steps to VisoPlus
+            syncToViso: function() {
+                if (!this.stepsData) return;
+                console.log('[UnifiedPortal] Syncing Steps → VisoPlus');
+                
+                // Convert Steps data to VisoPlus format
+                try {
+                    this.convertStepsToViso(this.stepsData);
+                    this.updateSyncStatus('synced');
+                } catch (err) {
+                    console.error('[UnifiedPortal] Sync error:', err);
+                    this.updateSyncStatus('error');
+                }
+            },
+            
+            // Sync from VisoPlus to Steps
+            syncToSteps: function() {
+                if (!this.visoData) return;
+                console.log('[UnifiedPortal] Syncing VisoPlus → Steps');
+                
+                // Convert VisoPlus data to Steps format
+                try {
+                    this.convertVisoToSteps(this.visoData);
+                    this.updateSyncStatus('synced');
+                } catch (err) {
+                    console.error('[UnifiedPortal] Sync error:', err);
+                    this.updateSyncStatus('error');
+                }
+            },
+            
+            // Data conversion methods
+            convertStepsToViso: function(stepsData) {
+                if (!window.VISOPLUS || !stepsData) return;
+                
+                console.log('[UnifiedPortal] Converting Steps to Viso:', stepsData);
+                
+                // Clear existing shapes and connectors
+                window.VISOPLUS.model.shapes.clear();
+                window.VISOPLUS.model.connectors.clear();
+                
+                const systems = stepsData.systems || window.systems || {};
+                const nodes = stepsData.nodes || window.nodes || [];
+                const systemsOrder = stepsData.systemsOrder || window.systemsOrder || [];
+                
+                // Create shapes for each node
+                let yOffset = 100;
+                let xOffset = 150;
+                const systemPositions = {};
+                
+                // Calculate system positions
+                systemsOrder.forEach((systemId, index) => {
+                    systemPositions[systemId] = {
+                        x: 150 + (index * 300),
+                        y: 100
+                    };
+                });
+                
+                // Create shapes for nodes
+                const nodeShapeMap = new Map();
+                nodes.forEach((node, index) => {
+                    const system = node.system || 'default';
+                    const systemPos = systemPositions[system] || { x: 150, y: 100 };
+                    
+                    const shape = window.VISOPLUS.createShape({
+                        type: node.shape || 'rect',
+                        x: systemPos.x + (index % 3) * 120,
+                        y: systemPos.y + Math.floor(index / 3) * 80,
+                        width: 100,
+                        height: 60,
+                        text: node.label || node.id || 'Node',
+                        style: {
+                            fill: node.bgColor || '#ffffff',
+                            stroke: node.outlineColor || '#333333',
+                            textColor: node.textColor || '#000000'
+                        }
+                    });
+                    
+                    nodeShapeMap.set(node.id, shape.id);
+                });
+                
+                // Create connectors for node connections
+                nodes.forEach(node => {
+                    if (node.connections && Array.isArray(node.connections)) {
+                        node.connections.forEach(conn => {
+                            const fromShapeId = nodeShapeMap.get(conn.from);
+                            const toShapeId = nodeShapeMap.get(node.id);
+                            
+                            if (fromShapeId && toShapeId) {
+                                window.VISOPLUS.createConnector({
+                                    from: fromShapeId,
+                                    to: toShapeId,
+                                    style: {
+                                        stroke: conn.color || '#444444',
+                                        strokeWidth: conn.strokeWidth || 2
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+                
+                // Trigger render
+                window.VISOPLUS.emit('model:changed', { reason: 'steps-sync', changed: { all: true } });
+            },
+            
+            convertVisoToSteps: function(visoData) {
+                if (!visoData || !window.systems || !window.nodes) return;
+                
+                console.log('[UnifiedPortal] Converting Viso to Steps:', visoData);
+                
+                // Convert VisoPlus shapes back to Steps nodes
+                const shapes = Array.from(visoData.shapes?.values() || []);
+                const connectors = Array.from(visoData.connectors?.values() || []);
+                
+                // Update existing nodes with position and style changes
+                window.nodes.forEach((node, index) => {
+                    const correspondingShape = shapes[index];
+                    if (correspondingShape) {
+                        node.label = correspondingShape.text || node.label;
+                        node.bgColor = correspondingShape.style?.fill || node.bgColor;
+                        node.outlineColor = correspondingShape.style?.stroke || node.outlineColor;
+                        node.textColor = correspondingShape.style?.textColor || node.textColor;
+                        node.shape = correspondingShape.type || node.shape;
+                    }
+                });
+                
+                // Update connections based on connectors
+                const connectionMap = new Map();
+                connectors.forEach(connector => {
+                    const fromIndex = shapes.findIndex(s => s.id === connector.from);
+                    const toIndex = shapes.findIndex(s => s.id === connector.to);
+                    
+                    if (fromIndex >= 0 && toIndex >= 0 && window.nodes[fromIndex] && window.nodes[toIndex]) {
+                        const fromNode = window.nodes[fromIndex];
+                        const toNode = window.nodes[toIndex];
+                        
+                        if (!toNode.connections) toNode.connections = [];
+                        
+                        // Add connection if it doesn't exist
+                        const existingConn = toNode.connections.find(c => c.from === fromNode.id);
+                        if (!existingConn) {
+                            toNode.connections.push({
+                                from: fromNode.id,
+                                color: connector.style?.stroke || '#444444',
+                                strokeWidth: connector.style?.strokeWidth || 2,
+                                style: 'solid'
+                            });
+                        }
+                    }
+                });
+                
+                // Trigger Steps UI refresh if available
+                if (typeof window.rebuildUI_AfterImport === 'function') {
+                    window.rebuildUI_AfterImport();
+                } else if (typeof window.renderSystemList === 'function') {
+                    window.renderSystemList();
+                }
+            },
+            
+            // UI updates
+            updateSyncStatus: function(status = 'ready') {
+                const indicator = document.getElementById('syncStatus');
+                if (!indicator) return;
+                
+                indicator.className = `sync-indicator ${status}`;
+                const messages = {
+                    'ready': '● Ready',
+                    'synced': '✓ Synced',
+                    'error': '✗ Error',
+                    'syncing': '⟳ Syncing...'
+                };
+                indicator.innerHTML = `<span>${status === 'syncing' ? '⟳' : (status === 'synced' ? '✓' : status === 'error' ? '✗' : '●')}</span> ${messages[status] || 'Ready'}`;
+            }
+        };
+
+        console.log('[UnifiedPortal] Initializing...');
+        
+        // Initialize Steps Designer in the left panel
+        async function initStepsDesigner() {
+            try {
+                // Load Steps Designer content
+                const response = await fetch('./stepsDesigner/index.html');
+                const html = await response.text();
+                
+                // Extract the body content and inject into our panel
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const stepsBody = doc.body;
+                
+                // Remove duplicate scripts and headers, keep only the main content
+                const contentElements = stepsBody.children;
+                const stepsContent = document.getElementById('stepsContent');
+                stepsContent.innerHTML = '';
+                
+                // Clone relevant sections
+                for (let element of contentElements) {
+                    if (element.tagName !== 'SCRIPT' && !element.classList.contains('app-header')) {
+                        const cloned = element.cloneNode(true);
+                        stepsContent.appendChild(cloned);
+                    }
+                }
+                
+                // Load Steps Designer JavaScript
+                const script = document.createElement('script');
+                script.src = './stepsDesigner/script.js';
+                script.onload = () => {
+                    console.log('[UnifiedPortal] Steps Designer loaded');
+                    window.UnifiedPortal.setState(window.systems || {}, 'steps');
+                };
+                document.head.appendChild(script);
+                
+            } catch (err) {
+                console.error('[UnifiedPortal] Failed to load Steps Designer:', err);
+                document.getElementById('stepsContent').innerHTML = '<div class="loading">Failed to load Steps Designer</div>';
+            }
+        }
+        
+        // Initialize VisoPlus in the right panel
+        async function initVisoPlus() {
+            try {
+                // Import VisoPlus core modules manually
+                const eventsModule = await import('./VISOPLUS/src/core/events.js');
+                const modelModule = await import('./VISOPLUS/src/core/model.js');
+                const renderModule = await import('./VISOPLUS/src/core/render.js');
+                const selectionModule = await import('./VISOPLUS/src/core/selection.js');
+                const routingBasicModule = await import('./VISOPLUS/src/core/routing-basic.js');
+                const routingGridModule = await import('./VISOPLUS/src/core/routing-grid.js');
+                
+                console.log('[UnifiedPortal] VisoPlus core modules loaded');
+                
+                // Initialize the renderer for our canvas
+                renderModule.initRenderer();
+                
+                // Store references for later use
+                window.VISOPLUS = {
+                    model: modelModule.model,
+                    createShape: modelModule.createShape,
+                    createConnector: modelModule.createConnector,
+                    routeAllBasic: routingBasicModule.routeAllBasic,
+                    routeAllGrid: routingGridModule.routeAllGrid,
+                    emit: eventsModule.emit,
+                    on: eventsModule.on,
+                    selection: selectionModule.selection
+                };
+                
+                // Set up toolbar event handlers
+                document.getElementById('addRectBtn').addEventListener('click', () => {
+                    const shape = window.VISOPLUS.createShape({
+                        type: 'rect',
+                        x: 200 + Math.random() * 200,
+                        y: 200 + Math.random() * 200,
+                        text: 'Rectangle'
+                    });
+                    window.VISOPLUS.emit('model:changed', { reason: 'addShape', changed: { shapes: [shape.id] } });
+                    console.log('[UnifiedPortal] Added rectangle:', shape);
+                });
+                
+                document.getElementById('addEllipseBtn').addEventListener('click', () => {
+                    const shape = window.VISOPLUS.createShape({
+                        type: 'ellipse',
+                        x: 200 + Math.random() * 200,
+                        y: 200 + Math.random() * 200,
+                        text: 'Ellipse'
+                    });
+                    window.VISOPLUS.emit('model:changed', { reason: 'addShape', changed: { shapes: [shape.id] } });
+                    console.log('[UnifiedPortal] Added ellipse:', shape);
+                });
+                
+                document.getElementById('addDiamondBtn').addEventListener('click', () => {
+                    const shape = window.VISOPLUS.createShape({
+                        type: 'diamond',
+                        x: 200 + Math.random() * 200,
+                        y: 200 + Math.random() * 200,
+                        text: 'Diamond'
+                    });
+                    window.VISOPLUS.emit('model:changed', { reason: 'addShape', changed: { shapes: [shape.id] } });
+                    console.log('[UnifiedPortal] Added diamond:', shape);
+                });
+                
+                document.getElementById('routeBasicBtn').addEventListener('click', () => {
+                    window.VISOPLUS.routeAllBasic();
+                    console.log('[UnifiedPortal] Applied basic routing');
+                });
+                
+                document.getElementById('routeGridBtn').addEventListener('click', () => {
+                    window.VISOPLUS.routeAllGrid();
+                    console.log('[UnifiedPortal] Applied grid routing');
+                });
+                
+                document.getElementById('zoomInBtn').addEventListener('click', () => {
+                    const model = window.VISOPLUS.model;
+                    model.meta.zoom = Math.min(3, model.meta.zoom * 1.2);
+                    window.VISOPLUS.emit('model:changed', { reason: 'zoom' });
+                });
+                
+                document.getElementById('zoomOutBtn').addEventListener('click', () => {
+                    const model = window.VISOPLUS.model;
+                    model.meta.zoom = Math.max(0.2, model.meta.zoom / 1.2);
+                    window.VISOPLUS.emit('model:changed', { reason: 'zoom' });
+                });
+                
+                document.getElementById('zoomFitBtn').addEventListener('click', () => {
+                    const model = window.VISOPLUS.model;
+                    model.meta.zoom = 1;
+                    model.meta.pan.x = 0;
+                    model.meta.pan.y = 0;
+                    window.VISOPLUS.emit('model:changed', { reason: 'zoom-fit' });
+                });
+                
+                document.getElementById('exportSvgBtn').addEventListener('click', () => {
+                    console.log('[UnifiedPortal] Export SVG requested');
+                    // TODO: Implement SVG export
+                });
+                
+                document.getElementById('exportJsonBtn').addEventListener('click', () => {
+                    const data = {
+                        shapes: Array.from(window.VISOPLUS.model.shapes.values()),
+                        connectors: Array.from(window.VISOPLUS.model.connectors.values()),
+                        meta: window.VISOPLUS.model.meta
+                    };
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'unified-portal-export.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    console.log('[UnifiedPortal] Exported JSON:', data);
+                });
+                
+                document.getElementById('manualSyncBtn').addEventListener('click', () => {
+                    window.UnifiedPortal.updateSyncStatus('syncing');
+                    window.UnifiedPortal.syncToViso();
+                });
+                
+                document.getElementById('autoSyncBtn').addEventListener('click', (e) => {
+                    window.UnifiedPortal.autoSync = !window.UnifiedPortal.autoSync;
+                    e.target.textContent = `Auto-Sync: ${window.UnifiedPortal.autoSync ? 'ON' : 'OFF'}`;
+                    e.target.className = window.UnifiedPortal.autoSync ? 'btn secondary' : 'btn';
+                });
+                
+                // Listen for VisoPlus model changes to sync back to Steps
+                window.VISOPLUS.on('model:changed', (data) => {
+                    console.log('[UnifiedPortal] VisoPlus model changed:', data);
+                    window.UnifiedPortal.setState(window.VISOPLUS.model, 'viso');
+                });
+                
+            } catch (err) {
+                console.error('[UnifiedPortal] Failed to load VisoPlus:', err);
+            }
+        }
+        
+        // Initialize both panels
+        Promise.all([
+            initStepsDesigner(),
+            initVisoPlus()
+        ]).then(() => {
+            console.log('[UnifiedPortal] Initialization complete');
+            window.UnifiedPortal.updateSyncStatus('ready');
+        }).catch(err => {
+            console.error('[UnifiedPortal] Initialization failed:', err);
+            window.UnifiedPortal.updateSyncStatus('error');
+        });
+    </script>
+</body>
+
+</html>

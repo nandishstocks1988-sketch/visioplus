@@ -100,6 +100,12 @@
 </head>
 
 <body>
+    <!-- Deprecation Notice -->
+    <div style="background: #fff3cd; border: 1px solid #ffecb5; padding: 8px 14px; color: #856404; font-size: 13px; display: flex; align-items: center; justify-content: space-between;">
+        <span>⚠️ <strong>Legacy Portal:</strong> This iframe-based portal is deprecated. Use the <a href="unified-portal.html" style="color: #0e73d9; text-decoration: none; font-weight: 600;">new unified portal</a> for better performance and features.</span>
+        <button onclick="this.parentElement.style.display='none'" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #856404;">×</button>
+    </div>
+    
     <header>
         <nav class="tabs" role="tablist" aria-label="Portal Tabs">
             <button id="tabDesignerBtn" class="active" data-tab="designer" role="tab" aria-selected="true">Shapes
@@ -109,6 +115,7 @@
         <div class="actions">
             <button id="syncToStepsBtn" title="Send current Shapes state to Steps">Sync Shapes → Steps</button>
             <button id="syncToShapesBtn" title="Pull Steps state into Shapes">Sync Steps → Shapes</button>
+            <a href="unified-portal.html" style="background: #28a745; color: white; padding: 6px 10px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px;">🚀 Try New Portal</a>
         </div>
     </header>
     <main>
@@ -118,7 +125,7 @@
         </section>
         <section id="paneSteps" class="pane" role="tabpanel" aria-labelledby="tabStepsBtn">
             <!-- Option A: Steps Designer (the mermaid app you shared) -->
-            <iframe id="stepsFrame" src="./StepsDesigner/index.html"></iframe>
+            <iframe id="stepsFrame" src="./stepsDesigner/index.html"></iframe>
             <!-- Option B (alternative): Minimal harness instead
       <iframe id="stepsFrame" src="./HarnessRef/diag-harness_Version83.html"></iframe>
       -->
